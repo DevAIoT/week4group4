@@ -168,18 +168,37 @@ def load_data(building_name: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 @mcp.tool()
-def get_building_statistics(building: str, date: str, start_time: str = None, end_time: str = None) -> str:
+def get_building_statistics(
+    building: Optional[str],
+    date: str,
+    start_time: str = None,
+    end_time: str = None,
+    file_path: Optional[str] = None,
+) -> str:
     """
     Queries occupancy data for a specific building on a specific date.
    
     Args:
-        building: Name (e.g., 'Building_01', 'CalIt2').
+        building: Name (e.g., 'Building_01', 'CalIt2'). Optional if file_path is provided.
         date: 'MM/DD/YY' (e.g., '07/24/05').
         start_time: 'HH:MM:SS' (optional).
         end_time: 'HH:MM:SS' (optional).
+        file_path: Full path to a preprocessed CSV with date/time/occupancy columns.
     """
-   
-    df = load_data(building)
+
+    if file_path:
+        path = Path(file_path).expanduser()
+        if not path.exists():
+            return f"Error: input file not found: {path}"
+        try:
+            df = pd.read_csv(path)
+            df.columns = [c.strip().lower() for c in df.columns]
+        except Exception as e:
+            return f"Error: failed to read input file: {str(e)}"
+    else:
+        if not building:
+            return "Error: Provide either building name or file_path."
+        df = load_data(building)
     if df.empty:
         return f"Error: Could not find data for '{building}'."
 
