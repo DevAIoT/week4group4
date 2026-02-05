@@ -89,7 +89,7 @@ void draw() {
       camera();
       hint(DISABLE_DEPTH_TEST);
       textAlign(CENTER, BOTTOM);
-      textSize(14);
+      textSize(20);
       // outlined text: draw black shadow/outline then white foreground
       fill(0);
       text(pct + "%", sx - 1, sy - 6);
@@ -713,6 +713,36 @@ void mouseClicked() {
   // Ignore clicks inside the chart panel (chart is overview-only)
   float chartTopY = height - chartHeight;
   if (mouseY >= chartTopY) {
+    // Allow selecting a building by clicking its bar in the chart.
+    if (mouseButton == RIGHT) {
+      selectedBuilding = null;
+      selectedBuildingIndex = -1;
+      return;
+    }
+    if (mouseButton == LEFT) {
+      int N = min(buildings.size(), occupancyData.size());
+      if (N > 0) {
+        int left = 50;
+        int right = width - 20;
+        int bottom = height - 18;
+        int top = (int)chartTopY + 28;
+        int w = right - left;
+        float barW = (float)w / N;
+        for (int i = 0; i < N; i++) {
+          float bx = left + i * barW;
+          float bw = max(1, barW - 4);
+          float barLeft = bx + 2;
+          float barRight = barLeft + bw;
+          if (mouseX >= barLeft && mouseX <= barRight && mouseY >= top && mouseY <= bottom) {
+            selectedBuilding = buildings.get(i);
+            selectedBuildingIndex = i;
+            return;
+          }
+        }
+      }
+      // clicked in chart but not on any bar -> leave selection unchanged
+      return;
+    }
     return;
   }
 
