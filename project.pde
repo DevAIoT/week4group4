@@ -907,7 +907,97 @@ void drawBuildingInfo() {
   fill(100);
   textSize(11);
   text("Right-click to deselect", textX, textY);
+  // draw time-series plot for selected building
+  drawSelectedTimeSeries();
   
   hint(ENABLE_DEPTH_TEST);
   popMatrix();
+}
+
+// Draw a small time-series plot for the selected building (shows values, moving average, trend)
+void drawSelectedTimeSeries() {
+  if (selectedBuilding == null || selectedBuildingIndex < 0 || selectedBuildingIndex >= occupancyData.size()) return;
+  int[] arr = occupancyData.get(selectedBuildingIndex);
+  if (arr == null || arr.length == 0) return;
+
+  // plot area (to the left of the info panel)
+  float pw = 300;
+  float ph = 100;
+  float px = width/2; // place left of the right-aligned info box
+  float py = 15;
+
+  pushStyle();
+  // background
+  rectMode(CORNER);
+  fill(255, 255, 255, 240);
+  stroke(8);
+  strokeWeight(2);
+  rect(px, py, pw, ph, 6);
+
+  // compute vertical scale based on building max
+  int maxVal = (selectedBuildingIndex < maxOccupancy.size()) ? maxOccupancy.get(selectedBuildingIndex) : 1;
+  if (maxVal <= 0) maxVal = 1;
+
+  // draw axes labels
+  noStroke();
+  fill(0);
+  textSize(11);
+  textAlign(LEFT, TOP);
+  textAlign(LEFT, BOTTOM);
+  text("0", px + 6, py + ph - 6);
+  text(str(maxVal), px + 6, py + 18);
+
+  // plot values
+  stroke(20);
+  strokeWeight(2);
+  noFill();
+  beginShape();
+  for (int i = 0; i < arr.length; i++) {
+    float t = map(i, 0, max(1, arr.length - 1), px + 40, px + pw - 10);
+    float v = map(arr[i], 0, maxVal, py + ph - 18, py + 28);
+    vertex(t, v);
+  }
+  endShape();
+
+  // moving average (simple window)
+  int win = min(5, arr.length);
+  if (win >= 2) {
+    stroke(200, 30, 30);
+    strokeWeight(2);
+    beginShape();
+    for (int i = 0; i < arr.length; i++) {
+      int start = max(0, i - win + 1);
+      int sum = 0;
+      for (int j = start; j <= i; j++) sum += arr[j];
+      float avg = (float)sum / (i - start + 1);
+      float tx = map(i, 0, max(1, arr.length - 1), px + 40, px + pw - 10);
+      float ty = map(avg, 0, maxVal, py + ph - 18, py + 28);
+      vertex(tx, ty);
+    }
+    endShape();
+  }
+
+  // trend line (linear regression)
+  if (arr.length >= 2) {
+    // compute least-squares slope/intercept
+    float sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (int i = 0; i < arr.length; i++) {
+      float x = i;
+      float y = arr[i];
+      sx += x; sy += y;
+      sxx += x * x; sxy += x * y;
+    }
+    float n = arr.length;
+    float slope = (n * sxy - sx * sy) / max(1.0, (n * sxx - sx * sx));
+    float intercept = (sy - slope * sx) / n;
+    float x0 = px + 40;
+    float x1 = px + pw - 10;
+    float y0 = map(intercept + slope * 0, 0, maxVal, py + ph - 18, py + 28);
+    float y1 = map(intercept + slope * (arr.length - 1), 0, maxVal, py + ph - 18, py + 28);
+    stroke(0, 120, 200);
+    strokeWeight(1.5);
+    line(x0, y0, x1, y1);
+  }
+
+  popStyle();
 }
