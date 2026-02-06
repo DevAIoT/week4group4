@@ -737,66 +737,6 @@ useEffect(() => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Video and Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
-          {/* Video Player */}
-          <Card className="lg:col-span-2 bg-white border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Heatmap Visualisation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative rounded-lg overflow-hidden bg-gray-900 aspect-video">
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  poster="/video-placeholder.jpg"
-                  onPlay={() => setIsVideoPlaying(true)}
-                  onPause={() => setIsVideoPlaying(false)}
-                  onEnded={() => setIsVideoPlaying(false)}
-                >
-                  <source src="/buildings-heatmap.mp4" type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-                
-                {/* Video overlay when not playing */}
-                {!isVideoPlaying && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900/60">
-                    <div className="text-center">
-                      <div className="w-16 h-16 rounded-full bg-emerald-600/90 flex items-center justify-center mx-auto mb-3 hover:bg-emerald-600 transition-colors cursor-pointer" onClick={toggleVideo}>
-                        <Play className="h-8 w-8 text-white ml-1" />
-                      </div>
-                      <p className="text-white text-sm font-medium">Play Animation</p>
-                      <p className="text-gray-300 text-xs mt-1">Heatmap of all buildings over time</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Controls overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={toggleVideo}
-                      className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                    >
-                      {isVideoPlaying ? (
-                        <Pause className="h-5 w-5 text-white" />
-                      ) : (
-                        <Play className="h-5 w-5 text-white ml-0.5" />
-                      )}
-                    </button>
-                    <div className="flex-1">
-                      <div className="h-1 bg-white/30 rounded-full">
-                        <div className="h-full w-0 bg-emerald-500 rounded-full" />
-                      </div>
-                    </div>
-                    <span className="text-white text-xs">0:00 / 2:30</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* Chat Panel */}
