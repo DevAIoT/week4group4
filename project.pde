@@ -18,9 +18,10 @@ ArrayList<PolyShape> walks     = new ArrayList<PolyShape>();
 // ---------- OCCUPANCY / TIMELINE ----------
 ArrayList<int[]> occupancyData = new ArrayList<int[]>(); // one array per CSV (1..10)
 ArrayList<Integer> maxOccupancy = new ArrayList<Integer>();
+ArrayList<String[]> timeStrings = new ArrayList<String[]>(); // store date+time per CSV row
 int timeIndex = 0;
 int stepCount = 0;
-int stepDuration = 600; // ms per timestep (1 minute)
+int stepDuration = 6000; // ms per timestep (1 minute)
 int lastStepMillis = 0;
 float heightScale = 4.0; // additional height per occupancy unit
 
@@ -78,6 +79,18 @@ void draw() {
       int occ = (timeIndex < arr.length) ? arr[timeIndex] : 0;
       int maxVal = (selectedBuildingIndex < maxOccupancy.size()) ? maxOccupancy.get(selectedBuildingIndex) : 0;
       int pct = (maxVal > 0) ? round((float)occ / maxVal * 100) : 0;
+      // last hour: sum of current and previous timestep (assumes ~30min sampling)
+      int lastHour = occ;
+      if (arr.length > 1) {
+        int prevIdx = (timeIndex - 1 + arr.length) % arr.length;
+        lastHour += arr[prevIdx];
+      }
+      // peak for this building
+      int peakVal = -1;
+      int peakT = -1;
+      for (int t = 0; t < arr.length; t++) {
+        if (arr[t] > peakVal) { peakVal = arr[t]; peakT = t; }
+      }
 
       // position: use building center top
       PVector center = selectedBuilding.getCenter();
@@ -90,14 +103,24 @@ void draw() {
       hint(DISABLE_DEPTH_TEST);
       textAlign(CENTER, BOTTOM);
       textSize(20);
-      // outlined text: draw black shadow/outline then white foreground
+      // Main line: current occupancy + percent
+      String topLine = occ + " (" + pct + "% )";
       fill(0);
-      text(pct + "%", sx - 1, sy - 6);
-      text(pct + "%", sx + 1, sy - 6);
-      text(pct + "%", sx,     sy - 7);
-      text(pct + "%", sx,     sy - 5);
+      text(topLine, sx - 1, sy - 10);
+      text(topLine, sx + 1, sy - 10);
+      text(topLine, sx,     sy - 11);
+      text(topLine, sx,     sy - 9);
       fill(255);
-      text(pct + "%", sx,     sy - 6);
+      text(topLine, sx,     sy - 10);
+
+      // Secondary small line: last hour and peak with percents
+      textSize(12);
+      fill(0);
+      int lastHourDenom = maxVal > 0 ? maxVal * 2 : 1; // two samples
+      int lastHourPct = round((float)lastHour / (float)lastHourDenom * 100);
+      int peakPct = (maxVal > 0) ? round((float)peakVal / maxVal * 100) : 0;
+      String small = "Last hr: " + lastHour + " (" + lastHourPct + "% )   Peak: " + peakVal + " (" + peakPct + "% )";
+      text(small, sx, sy + 6);
       hint(ENABLE_DEPTH_TEST);
       popMatrix();
     }
@@ -550,29 +573,52 @@ void loadOccupancyData() {
   maxOccupancy.clear();
   stepCount = 0;
   for (int i = 1; i <= 10; i++) {
-    String path = "../datasets/" + i + ".csv";
+    String name = "Building_" + nf(i, 2) + ".csv";
+    String p1 = "../datasets/" + name;
+    String p2 = "datasets/" + name;
+    String p3 = sketchPath(p1);
+    String p4 = sketchPath(p2);
     Table t = null;
-    try {
-      t = loadTable(path, "header");
-    } catch (Exception e) {
-      t = null;
+    // try several likely locations
+    String[] candidates = { p1, p2, p3, p4 };
+    for (int ci = 0; ci < candidates.length; ci++) {
+      String tryPath = candidates[ci];
+      if (tryPath == null) continue;
+      try {
+        t = loadTable(tryPath, "header");
+        if (t != null) {
+          println("Loaded: " + tryPath);
+          break;
+        }
+      } catch (Exception e) {
+        t = null;
+      }
     }
     if (t != null) {
       int rows = t.getRowCount();
       int[] arr = new int[rows];
+      String[] times = new String[rows];
       int maxVal = 0;
       for (int r = 0; r < rows; r++) {
         TableRow row = t.getRow(r);
         arr[r] = row.getInt("occupancy");
+        // store date+time string from the CSV
+        String d = "";
+        String tm = "";
+        try { d = row.getString("date"); } catch (Exception e) { d = ""; }
+        try { tm = row.getString("time"); } catch (Exception e) { tm = ""; }
+        if (d != null && d.length() > 0 && tm != null && tm.length() > 0) times[r] = d + " " + tm; else times[r] = "";
         if (arr[r] > maxVal) maxVal = arr[r];
       }
       occupancyData.add(arr);
       maxOccupancy.add(maxVal);
+      timeStrings.add(times);
       if (rows > stepCount) stepCount = rows;
     }
   }
   if (stepCount == 0) stepCount = 1;
   timeIndex = 0;
+  println("Occupancy datasets loaded: " + occupancyData.size() + ", stepCount=" + stepCount);
 }
 
 void updateOccupancy() {
@@ -597,9 +643,19 @@ void updateOccupancy() {
   textAlign(LEFT, TOP);
   textSize(14);
   
-  // Display current time
-  String currentTime = String.format("%02d:%02d:%02d", hour(), minute(), second());
-  text("Current Time: " + currentTime, 10, 10);
+  // Display current time using file timestamps when available
+  String fileTime = null;
+  for (int b = 0; b < timeStrings.size(); b++) {
+    String[] ts = timeStrings.get(b);
+    if (ts != null && timeIndex < ts.length && ts[timeIndex] != null && ts[timeIndex].length() > 0) {
+      fileTime = ts[timeIndex];
+      break;
+    }
+  }
+  if (fileTime == null) {
+    fileTime = String.format("%02d:%02d:%02d", hour(), minute(), second());
+  }
+  text("Current Time: " + fileTime, 10, 10);
   
   // Display timestep
   String label = "Timestep: " + timeIndex + " / " + (stepCount-1);
@@ -826,6 +882,24 @@ void drawBuildingInfo() {
     int pct = 0;
     if (maxVal > 0) pct = round((float)occ / maxVal * 100);
     text("Current Occupancy: " + occ + " (" + pct + "% of max)", textX, textY);
+    textY += lineH;
+
+    // last hour (current + previous sample)
+    int lastHour = occ;
+    if (arr.length > 1) {
+      int prevIdx = (timeIndex - 1 + arr.length) % arr.length;
+      lastHour += arr[prevIdx];
+    }
+    // peak for this building
+    int peakVal = -1;
+    int peakT = -1;
+    for (int t = 0; t < arr.length; t++) {
+      if (arr[t] > peakVal) { peakVal = arr[t]; peakT = t; }
+    }
+    int peakPct = (maxVal > 0) ? round((float)peakVal / maxVal * 100) : 0;
+    text("Last hour: " + lastHour, textX, textY);
+    textY += lineH;
+    text("Peak: " + peakVal + " (" + peakPct + "% of max) @t=" + peakT, textX, textY);
   }
   
   // Instructions
